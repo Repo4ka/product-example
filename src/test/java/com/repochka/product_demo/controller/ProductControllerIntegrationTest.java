@@ -57,6 +57,7 @@ class ProductControllerIntegrationTest {
                 .andExpect(jsonPath("$.name", is("Ведьмак. Меч Предназначения")))
                 .andExpect(jsonPath("$.description", is("Вторая книга из цикла «Ведьмак», в которую вошли шесть повестей о ведьмаке Геральте.")))
                 .andExpect(jsonPath("$.price", is(39.99)))
+                .andExpect(jsonPath("$.discountedPrice", is(35.99)))
                 .andExpect(jsonPath("$.category", is("BOOKS")))
                 .andReturn()
                 .getResponse()
@@ -256,6 +257,65 @@ class ProductControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(0)))
                 .andExpect(jsonPath("$.totalElements", is(1)));
+    }
+
+    @Test
+    void createBooksProduct_returnsDiscountedPrice() throws Exception {
+        ProductCreateRequest request = new ProductCreateRequest(
+                "Clean Code", null, new BigDecimal("100.00"), Category.BOOKS);
+
+        mockMvc.perform(post("/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.price", is(100.00)))
+                .andExpect(jsonPath("$.discountedPrice", is(90.00)));
+    }
+
+    @Test
+    void getElectronicsProduct_discountedPriceEqualsPrice() throws Exception {
+        Long id = createTestProduct("Laptop", new BigDecimal("200.00"), Category.ELECTRONICS);
+
+        mockMvc.perform(get("/products/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.price", is(200.00)))
+                .andExpect(jsonPath("$.discountedPrice", is(200.00)));
+    }
+
+    @Test
+    void getBooksProduct_discountedPriceIs10PercentLess() throws Exception {
+        Long id = createTestProduct("Clean Code", new BigDecimal("100.00"), Category.BOOKS);
+
+        mockMvc.perform(get("/products/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.price", is(100.00)))
+                .andExpect(jsonPath("$.discountedPrice", is(90.00)));
+    }
+
+    @Test
+    void listProducts_includesDiscountedPriceForEachProduct() throws Exception {
+        createTestProduct("Book", new BigDecimal("50.00"), Category.BOOKS);
+        createTestProduct("Laptop", new BigDecimal("100.00"), Category.ELECTRONICS);
+
+        mockMvc.perform(get("/products"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].discountedPrice", notNullValue()))
+                .andExpect(jsonPath("$.content[1].discountedPrice", notNullValue()));
+    }
+
+    @Test
+    void updateProduct_changeCategoryFromBooksToElectronics_updatesDiscountedPrice() throws Exception {
+        Long id = createTestProduct("Book", new BigDecimal("100.00"), Category.BOOKS);
+
+        ProductUpdateRequest updateRequest = new ProductUpdateRequest(
+                "Now Electronics", null, new BigDecimal("100.00"), Category.ELECTRONICS);
+
+        mockMvc.perform(put("/products/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.price", is(100.00)))
+                .andExpect(jsonPath("$.discountedPrice", is(100.00)));
     }
 
     private Long createTestProduct(String name, BigDecimal price, Category category) throws Exception {

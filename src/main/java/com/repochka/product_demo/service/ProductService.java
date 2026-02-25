@@ -15,6 +15,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 
 @Slf4j
@@ -72,7 +74,22 @@ public class ProductService {
 
     private ProductResponse toResponseWithDiscount(Product product) {
         ProductResponse response = productMapper.toResponse(product);
-        response.setDiscountedPrice(product.getPrice());
+        response.setDiscountedPrice(calculateDiscountedPrice(product.getPrice(), product.getCategory()));
         return response;
+    }
+
+    /**
+     * Calculates the discounted price based on the category's discount rate.
+     * <p>
+     * Each {@link Category} defines its own discount rate (e.g., BOOKS = 10%).
+     * The result is rounded to 2 decimal places using {@link RoundingMode#HALF_UP}.
+     * </p>
+     * @param price    original product price
+     * @param category product category containing the discount rate
+     * @return price after applying the category discount
+     */
+    BigDecimal calculateDiscountedPrice(BigDecimal price, Category category) {
+        return price.multiply(BigDecimal.ONE.subtract(category.getDiscountRate()))
+                .setScale(2, RoundingMode.HALF_UP);
     }
 }

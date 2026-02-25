@@ -71,7 +71,7 @@ class ProductServiceTest {
         assertThat(result.getId()).isEqualTo(1L);
         assertThat(result.getName()).isEqualTo("Clean Code");
         assertThat(result.getPrice()).isEqualByComparingTo("39.99");
-        assertThat(result.getDiscountedPrice()).isEqualByComparingTo("39.99");
+        assertThat(result.getDiscountedPrice()).isEqualByComparingTo("35.99");
         assertThat(result.getCategory()).isEqualTo(Category.BOOKS);
     }
 
@@ -228,5 +228,54 @@ class ProductServiceTest {
 
         assertThat(result.getContent()).isEmpty();
         assertThat(result.getTotalElements()).isZero();
+    }
+
+    @Test
+    void calculateDiscountedPrice_booksGets10PercentDiscount() {
+        assertThat(productService.calculateDiscountedPrice(new BigDecimal("100.00"), Category.BOOKS))
+                .isEqualByComparingTo("90.00");
+    }
+
+    @Test
+    void calculateDiscountedPrice_electronicsNoDiscount() {
+        assertThat(productService.calculateDiscountedPrice(new BigDecimal("200.00"), Category.ELECTRONICS))
+                .isEqualByComparingTo("200.00");
+    }
+
+    @Test
+    void calculateDiscountedPrice_foodNoDiscount() {
+        assertThat(productService.calculateDiscountedPrice(new BigDecimal("50.00"), Category.FOOD))
+                .isEqualByComparingTo("50.00");
+    }
+
+    @Test
+    void calculateDiscountedPrice_otherNoDiscount() {
+        assertThat(productService.calculateDiscountedPrice(new BigDecimal("75.00"), Category.OTHER))
+                .isEqualByComparingTo("75.00");
+    }
+
+    @Test
+    void calculateDiscountedPrice_booksRoundsHalfUp() {
+        assertThat(productService.calculateDiscountedPrice(new BigDecimal("33.33"), Category.BOOKS))
+                .isEqualByComparingTo("30.00");
+    }
+
+    @Test
+    void getProductById_shouldReturnDiscountedPriceForBooks() {
+        Product product = Product.builder()
+                .id(1L).name("Book").price(new BigDecimal("100.00"))
+                .category(Category.BOOKS)
+                .createdAt(OffsetDateTime.now()).updatedAt(OffsetDateTime.now()).build();
+
+        ProductResponse mappedResponse = ProductResponse.builder()
+                .id(1L).name("Book").price(new BigDecimal("100.00"))
+                .category(Category.BOOKS).build();
+
+        when(productRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(product));
+        when(productMapper.toResponse(product)).thenReturn(mappedResponse);
+
+        ProductResponse result = productService.getProductById(1L);
+
+        assertThat(result.getDiscountedPrice()).isEqualByComparingTo("90.00");
     }
 }
