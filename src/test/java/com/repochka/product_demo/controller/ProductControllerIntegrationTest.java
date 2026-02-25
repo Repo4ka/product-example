@@ -20,6 +20,7 @@ import java.time.temporal.ChronoUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -47,8 +48,6 @@ class ProductControllerIntegrationTest {
                 "Ведьмак. Меч Предназначения",
                 "Вторая книга из цикла «Ведьмак», в которую вошли шесть повестей о ведьмаке Геральте.",
                 new BigDecimal("39.99"), Category.BOOKS);
-
-        OffsetDateTime before = OffsetDateTime.now();
 
         String responseBody = mockMvc.perform(post("/products")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -178,6 +177,85 @@ class ProductControllerIntegrationTest {
 
         mockMvc.perform(delete("/products/{id}", id))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void listProducts_returnsPaginatedResponse() throws Exception {
+        createTestProduct("Product A", new BigDecimal("10.00"), Category.ELECTRONICS);
+        createTestProduct("Product B", new BigDecimal("20.00"), Category.BOOKS);
+        createTestProduct("Product C", new BigDecimal("30.00"), Category.FOOD);
+
+        mockMvc.perform(get("/products"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(3)))
+                .andExpect(jsonPath("$.totalElements", is(3)))
+                .andExpect(jsonPath("$.totalPages", is(1)))
+                .andExpect(jsonPath("$.number", is(0)))
+                .andExpect(jsonPath("$.size", is(20)));
+    }
+
+    @Test
+    void listProducts_withPageSize_limitsResults() throws Exception {
+        createTestProduct("Product A", new BigDecimal("10.00"), Category.ELECTRONICS);
+        createTestProduct("Product B", new BigDecimal("20.00"), Category.BOOKS);
+        createTestProduct("Product C", new BigDecimal("30.00"), Category.FOOD);
+
+        mockMvc.perform(get("/products").param("page", "0").param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.totalElements", is(3)))
+                .andExpect(jsonPath("$.totalPages", is(2)))
+                .andExpect(jsonPath("$.number", is(0)))
+                .andExpect(jsonPath("$.size", is(2)));
+    }
+
+    @Test
+    void listProducts_withCategoryFilter_returnsOnlyMatchingProducts() throws Exception {
+        createTestProduct("Laptop", new BigDecimal("999.00"), Category.ELECTRONICS);
+        createTestProduct("Clean Code", new BigDecimal("39.99"), Category.BOOKS);
+        createTestProduct("Another Book", new BigDecimal("19.99"), Category.BOOKS);
+
+        mockMvc.perform(get("/products").param("category", "BOOKS"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.totalElements", is(2)))
+                .andExpect(jsonPath("$.content[0].category", is("BOOKS")))
+                .andExpect(jsonPath("$.content[1].category", is("BOOKS")));
+    }
+
+    @Test
+    void listProducts_excludesSoftDeletedProducts() throws Exception {
+        createTestProduct("Active Product", new BigDecimal("10.00"), Category.ELECTRONICS);
+        Long deletedId = createTestProduct("Deleted Product", new BigDecimal("20.00"), Category.ELECTRONICS);
+
+        mockMvc.perform(delete("/products/{id}", deletedId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/products"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.totalElements", is(1)))
+                .andExpect(jsonPath("$.content[0].name", is("Active Product")));
+    }
+
+    @Test
+    void listProducts_noMatchingCategory_returnsEmptyContent() throws Exception {
+        createTestProduct("Laptop", new BigDecimal("999.00"), Category.ELECTRONICS);
+
+        mockMvc.perform(get("/products").param("category", "FOOD"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(0)))
+                .andExpect(jsonPath("$.totalElements", is(0)));
+    }
+
+    @Test
+    void listProducts_outOfRangePage_returnsEmptyContent() throws Exception {
+        createTestProduct("Product", new BigDecimal("10.00"), Category.ELECTRONICS);
+
+        mockMvc.perform(get("/products").param("page", "99"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(0)))
+                .andExpect(jsonPath("$.totalElements", is(1)));
     }
 
     private Long createTestProduct(String name, BigDecimal price, Category category) throws Exception {

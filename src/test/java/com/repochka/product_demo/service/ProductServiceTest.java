@@ -15,8 +15,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -165,5 +171,62 @@ class ProductServiceTest {
 
         assertThatThrownBy(() -> productService.softDeleteProduct(99L))
                 .isInstanceOf(ProductNotFoundException.class);
+    }
+
+    @Test
+    void listProducts_shouldReturnPaginatedResults() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Product product = Product.builder()
+                .id(1L).name("Test").price(new BigDecimal("10.00"))
+                .category(Category.ELECTRONICS).build();
+        Page<Product> productPage = new PageImpl<>(List.of(product), pageable, 1);
+
+        ProductResponse mappedResponse = ProductResponse.builder()
+                .id(1L).name("Test").price(new BigDecimal("10.00"))
+                .category(Category.ELECTRONICS).build();
+
+        when(productRepository.findAllByDeletedFalse(pageable)).thenReturn(productPage);
+        when(productMapper.toResponse(product)).thenReturn(mappedResponse);
+
+        Page<ProductResponse> result = productService.listProducts(pageable, null);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().get(0).getName()).isEqualTo("Test");
+    }
+
+    @Test
+    void listProducts_shouldFilterByCategory() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Product book = Product.builder()
+                .id(1L).name("Clean Code").price(new BigDecimal("39.99"))
+                .category(Category.BOOKS).build();
+        Page<Product> productPage = new PageImpl<>(List.of(book), pageable, 1);
+
+        ProductResponse mappedResponse = ProductResponse.builder()
+                .id(1L).name("Clean Code").price(new BigDecimal("39.99"))
+                .category(Category.BOOKS).build();
+
+        when(productRepository.findAllByCategoryAndDeletedFalse(Category.BOOKS, pageable)).thenReturn(productPage);
+        when(productMapper.toResponse(book)).thenReturn(mappedResponse);
+
+        Page<ProductResponse> result = productService.listProducts(pageable, Category.BOOKS);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getCategory()).isEqualTo(Category.BOOKS);
+        verify(productRepository).findAllByCategoryAndDeletedFalse(Category.BOOKS, pageable);
+    }
+
+    @Test
+    void listProducts_shouldReturnEmptyPageWhenNoMatches() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Product> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+
+        when(productRepository.findAllByCategoryAndDeletedFalse(Category.FOOD, pageable)).thenReturn(emptyPage);
+
+        Page<ProductResponse> result = productService.listProducts(pageable, Category.FOOD);
+
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalElements()).isZero();
     }
 }

@@ -3,12 +3,15 @@ package com.repochka.product_demo.service;
 import com.repochka.product_demo.dto.ProductCreateRequest;
 import com.repochka.product_demo.dto.ProductResponse;
 import com.repochka.product_demo.dto.ProductUpdateRequest;
+import com.repochka.product_demo.entity.Category;
 import com.repochka.product_demo.entity.Product;
 import com.repochka.product_demo.exception.ProductNotFoundException;
 import com.repochka.product_demo.mapper.ProductMapper;
 import com.repochka.product_demo.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +46,15 @@ public class ProductService {
         Product saved = productRepository.save(product);
         log.info("Updated product id={}", saved.getId());
         return toResponseWithDiscount(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ProductResponse> listProducts(Pageable pageable, Category category) {
+        log.info("Listing products page={} size={} category={}", pageable.getPageNumber(), pageable.getPageSize(), category);
+        Page<Product> products = (category != null)
+                ? productRepository.findAllByCategoryAndDeletedFalse(category, pageable)
+                : productRepository.findAllByDeletedFalse(pageable);
+        return products.map(this::toResponseWithDiscount);
     }
 
     public void softDeleteProduct(Long id) {

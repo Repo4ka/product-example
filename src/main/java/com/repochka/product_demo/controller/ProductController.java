@@ -3,10 +3,14 @@ package com.repochka.product_demo.controller;
 import com.repochka.product_demo.dto.ProductCreateRequest;
 import com.repochka.product_demo.dto.ProductResponse;
 import com.repochka.product_demo.dto.ProductUpdateRequest;
+import com.repochka.product_demo.entity.Category;
 import com.repochka.product_demo.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -16,7 +20,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import static org.springframework.data.domain.Sort.Direction.DESC;
 
 @Slf4j
 @RestController
@@ -31,6 +38,15 @@ public class ProductController {
         log.info("Creating product with name={}", request.getName());
         ProductResponse response = productService.createProduct(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping
+    public ResponseEntity<Page<ProductResponse>> listProducts(
+            @PageableDefault(size = 20, sort = "createdAt", direction = DESC) Pageable pageable,
+            @RequestParam(required = false) Category category) {
+        log.info("Listing products page={} size={} category={}", pageable.getPageNumber(), pageable.getPageSize(), category);
+        Page<ProductResponse> products = productService.listProducts(pageable, category);
+        return ResponseEntity.ok(products);
     }
 
     @GetMapping("/{id}")
