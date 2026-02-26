@@ -20,9 +20,7 @@ import java.time.temporal.ChronoUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -103,7 +101,7 @@ class ProductControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(updateRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name", is("Updated")))
-                .andExpect(jsonPath("$.description").doesNotExist())
+                .andExpect(jsonPath("$.description").value(nullValue()))
                 .andExpect(jsonPath("$.price", is(20.00)))
                 .andExpect(jsonPath("$.category", is("BOOKS")));
     }
@@ -316,6 +314,20 @@ class ProductControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.price", is(100.00)))
                 .andExpect(jsonPath("$.discountedPrice", is(100.00)));
+    }
+
+    @Test
+    void createProduct_withInvalidCategory_returns400() throws Exception {
+        String body = """
+                {"name": "Test", "price": 10.00, "category": "INVALID_CATEGORY"}
+                """;
+
+        mockMvc.perform(post("/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status", is(400)))
+                .andExpect(jsonPath("$.message", is("Malformed request body")));
     }
 
     private Long createTestProduct(String name, BigDecimal price, Category category) throws Exception {

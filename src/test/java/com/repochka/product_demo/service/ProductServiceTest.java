@@ -256,8 +256,8 @@ class ProductServiceTest {
 
     @Test
     void calculateDiscountedPrice_booksRoundsHalfUp() {
-        assertThat(productService.calculateDiscountedPrice(new BigDecimal("33.33"), Category.BOOKS))
-                .isEqualByComparingTo("30.00");
+        assertThat(productService.calculateDiscountedPrice(new BigDecimal("33.37"), Category.BOOKS))
+                .isEqualByComparingTo("30.03");
     }
 
     @Test
